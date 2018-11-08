@@ -1,7 +1,7 @@
 var log = console.log;
 
 console.log = function() {
-	log.apply(console, [(new Date()).toISOString(), ' | '].concat(arguments[0]));
+    log.apply(console, [(new Date()).toISOString(), ' | '].concat(arguments[0]));
 };
 
 var http = require('http');
@@ -13,126 +13,133 @@ var stack = [];
 var readURL = '/api/mail.read.json/';
 
 function multiPartBodyToJSON(body) {
-	var lineBreaker = body.split("\n")[0];
-	var regex = /name="(.*)"\s(.+\s)*\s+([\s|\S]*)/;
+    var lineBreaker = body.split("\n")[0];
+    var regex = /name="(.*)"\s(.+\s)*\s+([\s|\S]*)/;
 
-	var multipartTokens = body.split(lineBreaker);
+    var multipartTokens = body.split(lineBreaker);
 
-	var obj = {};
-	var match;
+    var obj = {};
+    var match;
 
-	for (var i = 0; i < multipartTokens.length; i++) {
-		var tokens = regex.exec(multipartTokens[i]);
-		if (!tokens) {
-			continue;
-		}
+    for (var i = 0; i < multipartTokens.length; i++) {
+        var tokens = regex.exec(multipartTokens[i]);
+        if (!tokens) {
+            continue;
+        }
 
-		var key = tokens[1];
-		var value = tokens[3].slice(0, -1);
+        var key = tokens[1];
+        var value = tokens[3].slice(0, -1);
 
-		if (!obj[key]) {
-			obj[key] = value;
-			continue;
-		}
+        if (!obj[key]) {
+            obj[key] = value;
+            continue;
+        }
 
-		// if obj[key] already exists, check for array
-		if (Array.isArray(obj[key])) {
-			obj[key].push(value);
-			continue;
-		}
+        // if obj[key] already exists, check for array
+        if (Array.isArray(obj[key])) {
+            obj[key].push(value);
+            continue;
+        }
 
-		// if not already an array, convert to array then push onto it
-		obj[key] = [ obj[key] ].concat(value);
-	}
+        // if not already an array, convert to array then push onto it
+        obj[key] = [obj[key]].concat(value);
+    }
 
-	return obj;
+    return obj;
 }
 
 http.createServer(function(req, res) {
 
-	switch (req.url) {
-		case '/api/mail.send.json/':
-		case '/api/mail.send.json':
+    switch (req.url) {
+        case '/api/mail.send.json/':
+        case '/api/mail.send.json':
 
-		if (req.method == 'POST') {
+            if (req.method == 'POST') {
 
-			console.log("Intercepted mail!!");
+                console.log("Intercepted mail!!");
 
-			var fullBody = '';
+                var fullBody = '';
 
-			req.on('data', function(chunk) {
-				fullBody += chunk.toString().split("\r").join("");
-			});
+                req.on('data', function(chunk) {
+                    fullBody += chunk.toString().split("\r").join("");
+                });
 
-			req.on('end', function() {
-					// parse the received body data
-					var decodedBody = multiPartBodyToJSON(fullBody);
-					decodedBody.to = decodedBody["to[]"] ? decodedBody["to[]"] : decodedBody["to"];
-					decodedBody.receivedAt = Date.now();
+                req.on('end', function() {
+                    // parse the received body data
+                    var decodedBody = multiPartBodyToJSON(fullBody);
+                    decodedBody.to = decodedBody["to[]"] ? decodedBody["to[]"] : decodedBody["to"];
+                    if (decodedBody.to === undefined) {
+                        var split = []
+                        fullBody.split('&').forEach((e) => {
+                            split = e.split('=')
+                            decodedBody[split[0]] = decodeURIComponent(split[1])
+                        })
+                    }
+                    decodedBody.receivedAt = Date.now();
 
-					stack.push(decodedBody);
+                    stack.push(decodedBody);
 
-					console.log("Mail to: " + decodedBody.to);
+                    console.log("Mail to: " + decodedBody.to);
 
-					res.writeHead(200, "OK", {
-						'Content-Type': 'application/json'
-					});
-					res.end('{ "message": "success", "errors": [] }');
-				});
+                    res.writeHead(200, "OK", {
+                        'Content-Type': 'application/json'
+                    });
+                    res.end('{ "message": "success", "errors": [] }');
+                });
 
-		} else {
-			res.writeHead(405, "Method not supported", {
-				'Content-Type': 'text/html'
-			});
-			res.end('<html><head><title>405 - Method not supported</title></head><body><h1>Method not supported.</h1></body></html>');
-		}
+            } else {
+                res.writeHead(405, "Method not supported", {
+                    'Content-Type': 'text/html'
+                });
+                res.end('<html><head><title>405 - Method not supported</title></head><body><h1>Method not supported.</h1></body></html>');
+            }
 
-		break;
-		case '/api/mail.clear.json':
-		case '/api/mail.clear.json/':
+            break;
+        case '/api/mail.clear.json':
+        case '/api/mail.clear.json/':
 
-		stack.length = 0;
-		res.writeHead(200, "OK", {
-			'Content-Type': 'application/json'
-		});
-		res.end('{ "message": "success", "errors": [] }');
+            stack.length = 0;
+            res.writeHead(200, "OK", {
+                'Content-Type': 'application/json'
+            });
+            res.end('{ "message": "success", "errors": [] }');
 
-		console.log("Cleared all emails");
+            console.log("Cleared all emails");
 
-		break;
-		case '/api/mail.read.json':
-		case '/api/mail.read.json/':
-		default:
+            break;
+        case '/api/mail.read.json':
+        case '/api/mail.read.json/':
+        default:
 
-		if (req.url.indexOf(readURL) == 0) {
-			var email = decodeURIComponent(req.url.substring(readURL.length));
+            if (req.url.indexOf(readURL) == 0) {
+                var email = decodeURIComponent(req.url.substring(readURL.length));
 
-			console.log("Searched for: " + email);
+                console.log("Searched for: " + email);
 
-			var mails = [];
+                var mails = [];
 
-			for (var i = 0; i < stack.length; i++) {
-				if (JSON.stringify(stack[i].to).indexOf(email) !== -1)
-					mails.push(stack[i]);
-			}
+                for (var i = 0; i < stack.length; i++) {
+                    if (JSON.stringify(stack[i].to).indexOf(email) !== -1)
+                        mails.push(stack[i]);
+                }
 
-			console.log("Found " + mails.length + " mails");
+                console.log("Found " + mails.length + " mails");
 
-			res.writeHead(200, "OK", {
-				'Content-Type': 'application/json'
-			});
-			res.end(JSON.stringify({
-				"total": mails.length,
-				"results": mails
-			}));
-		}else{
-			res.writeHead(200, "OK", {
-				'Content-Type': 'text/html'
-			});
-			fs.readFile("index.html", function (e, f) {
-				res.end(f);
-			});	
-		}		
+                res.writeHead(200, "OK", {
+                    'Content-Type': 'application/json'
+                });
+                res.end(JSON.stringify({
+                    "total": mails.length,
+                    "results": mails
+                }));
+            } else {
+                res.writeHead(200, "OK", {
+                    'Content-Type': 'text/html'
+                });
+                fs.readFile("index.html", function(e, f) {
+                    res.end(f);
+                });
+            }
 
-	}
-}).listen(3000);
+    }
+}).listen(process.env.PORT || 3000);

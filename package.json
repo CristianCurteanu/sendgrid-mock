@@ -1,0 +1,19 @@
+{
+    "name": "sendgrid-mock",
+    "version": "0.0.1",
+    "description": "Micro WebServer to mock Sengrid's Mail Service REST",
+    "main": "src/webserver.js",
+    "engines": {
+        "node": "10.3.0"
+    },
+    "scripts": {
+        "start": "npm install && node src/webserver.js",
+        "smtp-server": "npm install && node src/smtp_server.js"
+    },
+    "author": "Tiago Soares <mr.tiagosoares@gmail.com>",
+    "dependencies": {
+        "form-data": "^2.3.3",
+        "mailparser": "^2.4.2",
+        "smtp-server": "^3.4.7"
+    }
+}
